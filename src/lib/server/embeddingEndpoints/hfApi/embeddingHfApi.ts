@@ -3,10 +3,11 @@ import type { EmbeddingEndpoint, Embedding } from "../embeddingEndpoints";
 import { chunk } from "$lib/utils/chunk";
 import { env } from "$env/dynamic/private";
 import { logger } from "$lib/server/logger";
+import type { EmbeddingModel } from "$lib/types/EmbeddingModel";
+import { decrypt } from "$lib/utils/encryption";
 
 export const embeddingEndpointHfApiSchema = z.object({
 	weight: z.number().int().positive().default(1),
-	model: z.any(),
 	type: z.literal("hfapi"),
 	authorization: z
 		.string()
@@ -14,11 +15,19 @@ export const embeddingEndpointHfApiSchema = z.object({
 		.transform((v) => (!v && env.HF_TOKEN ? "Bearer " + env.HF_TOKEN : v)), // if the header is not set but HF_TOKEN is, use it as the authorization header
 });
 
+type EmbeddingEndpointHfApiInput = z.input<typeof embeddingEndpointHfApiSchema> & {
+	model: EmbeddingModel;
+};
+
 export async function embeddingEndpointHfApi(
-	input: z.input<typeof embeddingEndpointHfApiSchema>
+	input: EmbeddingEndpointHfApiInput
 ): Promise<EmbeddingEndpoint> {
-	const { model, authorization } = embeddingEndpointHfApiSchema.parse(input);
-	const url = "https://api-inference.huggingface.co/models/" + model.id;
+	const { model } = input;
+	const { authorization } = embeddingEndpointHfApiSchema.parse(input);
+
+	const decryptedAuthorization = authorization && decrypt(authorization);
+
+	const url = "https://api-inference.huggingface.co/models/" + model.name;
 
 	return async ({ inputs }) => {
 		const batchesInputs = chunk(inputs, 128);
@@ -30,7 +39,7 @@ export async function embeddingEndpointHfApi(
 					headers: {
 						Accept: "application/json",
 						"Content-Type": "application/json",
-						...(authorization ? { Authorization: authorization } : {}),
+						...(decryptedAuthorization ? { Authorization: decryptedAuthorization } : {}),
 					},
 					body: JSON.stringify({
 						inputs: {

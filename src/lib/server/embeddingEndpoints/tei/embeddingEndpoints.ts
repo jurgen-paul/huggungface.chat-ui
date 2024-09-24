@@ -3,10 +3,11 @@ import type { EmbeddingEndpoint, Embedding } from "../embeddingEndpoints";
 import { chunk } from "$lib/utils/chunk";
 import { env } from "$env/dynamic/private";
 import { logger } from "$lib/server/logger";
+import type { EmbeddingModel } from "$lib/types/EmbeddingModel";
+import { decrypt } from "$lib/utils/encryption";
 
 export const embeddingEndpointTeiParametersSchema = z.object({
 	weight: z.number().int().positive().default(1),
-	model: z.any(),
 	type: z.literal("tei"),
 	url: z.string().url(),
 	authorization: z
@@ -35,10 +36,17 @@ const getModelInfoByUrl = async (url: string, authorization?: string) => {
 	}
 };
 
+type EmbeddingEndpointTeiInput = z.input<typeof embeddingEndpointTeiParametersSchema> & {
+	model: EmbeddingModel;
+};
+
 export async function embeddingEndpointTei(
-	input: z.input<typeof embeddingEndpointTeiParametersSchema>
+	input: EmbeddingEndpointTeiInput
 ): Promise<EmbeddingEndpoint> {
-	const { url, model, authorization } = embeddingEndpointTeiParametersSchema.parse(input);
+	const { model } = input;
+	const { url, authorization } = embeddingEndpointTeiParametersSchema.parse(input);
+
+	const decryptedAuthorization = authorization && decrypt(authorization);
 
 	const { max_client_batch_size, max_batch_tokens } = await getModelInfoByUrl(url);
 	const maxBatchSize = Math.min(
@@ -58,7 +66,7 @@ export async function embeddingEndpointTei(
 					headers: {
 						Accept: "application/json",
 						"Content-Type": "application/json",
-						...(authorization ? { Authorization: authorization } : {}),
+						...(decryptedAuthorization ? { Authorization: decryptedAuthorization } : {}),
 					},
 					body: JSON.stringify({ inputs: batchInputs, normalize: true, truncate: true }),
 				});
