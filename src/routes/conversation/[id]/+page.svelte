@@ -405,6 +405,7 @@
 	{messages}
 	shared={data.shared}
 	preprompt={data.preprompt}
+	promptExamples={data.promptExamples}
 	bind:files
 	on:message={onMessage}
 	on:retry={onRetry}
