@@ -8,7 +8,6 @@
 	import NavConversationItem from "./NavConversationItem.svelte";
 	import type { LayoutData } from "../../routes/$types";
 	import type { ConvSidebar } from "$lib/types/ConvSidebar";
-	import type { Model } from "$lib/types/Model";
 	import { page } from "$app/stores";
 
 	export let conversations: ConvSidebar[];
@@ -43,7 +42,7 @@
 		older: "Older",
 	} as const;
 
-	const nModels: number = $page.data.models.filter((el: Model) => !el.unlisted).length;
+	const nModels: number = $page.data.models.length;
 </script>
 
 <div class="sticky top-0 flex flex-none items-center justify-between px-1.5 py-3.5 max-sm:pt-0">
